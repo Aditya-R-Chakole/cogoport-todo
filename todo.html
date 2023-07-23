@@ -421,6 +421,7 @@
 
             // Function to render completed tasks
             function completedTask({taskId, subtaskId}){
+              let taskPos = findPosById(allTasks, taskId);
               if(subtaskId == -1){
                 // Considering only main tasks
                 // locating the element, and adding and removing the class "taskCompleted"
@@ -436,16 +437,17 @@
                 }
               }
               else{
+                let subtaskPos = findPosById(allTasks[taskPos].subtasks, subtaskId);
                 // similarly, doing this for subtask
                 let identifier = String(taskId)+'-'+String(subtaskId);
                 let completedTaskElement = document.getElementById(identifier);
                 if(completedTaskElement.classList.contains("taskCompleted")){
                   completedTaskElement.classList.remove("taskCompleted");
-                  for(let j=0; j<allTasks[taskId].subtasks.length; j++){ if(subtaskId == `${allTasks[taskId].subtasks[j].id}`){ allTasks[taskId].subtasks[j].completed = 0; break; }}
+                  for(let j=0; j<allTasks[taskPos].subtasks.length; j++){ if(subtaskId == `${allTasks[taskPos].subtasks[j].id}`){ allTasks[taskPos].subtasks[j].completed = 0; break; }}
                 }
                 else{
                   completedTaskElement.classList.add("taskCompleted");
-                  for(let j=0; j<allTasks[taskId].subtasks.length; j++){ if(subtaskId == `${allTasks[taskId].subtasks[j].id}`){ allTasks[taskId].subtasks[j].completed = 1; break; }}
+                  for(let j=0; j<allTasks[taskPos].subtasks.length; j++){ if(subtaskId == `${allTasks[taskPos].subtasks[j].id}`){ allTasks[taskPos].subtasks[j].completed = 1; break; }}
                 }
               }
               
