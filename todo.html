@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<hmtl>
+    <head>
+        <title>Final ToDo App</title>
+        
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;500;700&family=PT+Sans:wght@400;700&family=Roboto:wght@100;300;500;700;900&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
+        
+        <script>
+            // Declaring Global Variables
+            let allTasks = []
+            let inputTask = "";
+            let category = "";
+            let tags = "";
+            let dueDate = "";
+            let priority = "";
+            let isImp = false;
+
+            let sortby = "dueDate";
+            
+            let searchBy = "";
+            let categoryFilter = "";
+            let tagsFilter = "";
+            let lowerDateFilter = "";
+            let upperDateFilter = "";
+            let priorityFilter = "";
+
+            // Helper function to find id from pos
+            function findPosById(list, id){
+              for(let i=0; i<list.length; i++) if(list[i].id == id) return i;
+              return -1;
+            }
+
+            // Helper function for task-related input features
+            function inputHelper(){
+                inputTask = document.getElementById("inputTask").value;
+                category  = document.getElementById("category").value;
+                tags = document.getElementById("tags").value;
+                dueDate  = document.getElementById("dueDate").value;
+                priority  = document.getElementById("priority").value;
+                isImp = document.getElementById("isImp").checked;
+            }
+
+            // Helper function for edit-related features
+            function editInputHelper({taskPos, subtaskPos, identifier, previousValue, helper}){
+              if(helper == "task") allTasks[taskPos].title = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+              else if(helper == "category") allTasks[taskPos].category = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+              else if(helper == "tags") allTasks[taskPos].tags = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+              else if(helper == "dueDate") allTasks[taskPos].dueDate = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+              else if(helper == "priority") allTasks[taskPos].priority = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+              else if(helper == "subtask") allTasks[taskPos].subtasks[subtaskPos].title = (document.getElementById(identifier).value == "")?(previousValue):(document.getElementById(identifier).value);
+            }
+
+            // Helper function for adding subtask
+            function subtaskInputHelper({identifier, taskPos}){
+              allTasks[taskPos].subtasks[allTasks[taskPos].subtasks.length-1].title = document.getElementById(identifier).value;
+            }
+
+            // Render Function
+            function render(sortby){
+              // Before rendering it all, Saving the tasks for Activity-Log
+              let activityLog = JSON.parse(localStorage.getItem("activityLog"));
+              if(activityLog == null) activityLog = [[], allTasks];
+              else if(activityLog[activityLog.length-1] != allTasks) activityLog.push(allTasks);
+              localStorage.setItem("activityLog", JSON.stringify(activityLog));
+
+              // Sorting the database as per the SortBy feature
+              allTasks.sort(function (a, b) {
+                if(a[sortby] == b[sortby]){
+                  if (a.id < b.id)  return -1;
+                  else if (a.id > b.id)  return 1;
+                  else return 0;
+                }
+                else{
+                  if (a[sortby] < b[sortby])  return -1;
+                  else if (a[sortby] > b[sortby])  return 1;
+                }
+              });
+
+              // Saving the tasks into local storage
+              localStorage.setItem("allTasks", JSON.stringify(allTasks));
+
+              // Removing all the rendered elemets
+              document.getElementById("tasks").innerHTML = "";
+
+              // Loop over all tasks to render everyone, one-by-one
+              for(let i=0; i<allTasks.length; i++){
+                // Finding the div for All-Tasks
+                let allTasksDiv = document.getElementById("tasks");
+                let container   = document.createElement("span");
+                container.className = "container";
+
+                // Append task-related elements in container
+                container.innerHTML += `
+                  <div class="main-task">
+                    <span id="${allTasks[i].id}" class="innerSpanL">
+                      <input type="checkbox" class="checkbox" name="checkboxCompleteStatus"  
+                      id="checkboxCompleteStatus-${allTasks[i].id}" 
+                      onclick=completedTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": -1})}) ${(allTasks[i].completed)?("checked"):("")}>
+                      
+                      <p class="task" id="task-${allTasks[i].id}">${String(allTasks[i].title)}</p>
+                      <p class="category ${(String(allTasks[i].category) == '')?('hidden'):('')}" id="category-${allTasks[i].id}">${String(allTasks[i].category)}</p>
+                      <p class="tags ${(String(allTasks[i].tags) == '')?('hidden'):('')}" id="tags-${allTasks[i].id}">${String(allTasks[i].tags)}</p>
+                      <p class="dueDate ${(String(allTasks[i].dueDate) == '')?('hidden'):('')}" id="dueDate-${allTasks[i].id}">${String(allTasks[i].dueDate)}</p>
+                      <p class="priority ${(String(allTasks[i].priority) == '')?('hidden'):('')}" id="priority-${allTasks[i].id}">${String(allTasks[i].priority.slice(2))}</p>
+                    </span>
+                    <span class="innerSpanR">
+                      <button id="addSubtask-${allTasks[i].id}"
+                      onclick=addSubtask("${allTasks[i].id}")>Add Subtask</button>
+                      <button id="edit-${allTasks[i].id}" 
+                      onclick=editTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": -1})})>Edit</button>
+                      <button id="delete-${allTasks[i].id}" 
+                      onclick=deleteTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": -1})})>Delete</button>
+                    </span>
+                  </div>
+                `;
+                      
+                for(let j=0; j<allTasks[i].subtasks.length; j++){
+                  container.innerHTML += `
+                  <div class="sub-task">
+                    <span id="${allTasks[i].id}-${allTasks[i].subtasks[j].id}" class="innerSpanLSubtask">
+                      <input type="checkbox" name="checkboxCompleteStatus" 
+                      id="checkboxCompleteStatus-${allTasks[i].id}-${allTasks[i].subtasks[j].id}" 
+                      onclick=completedTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": allTasks[i].subtasks[j].id})}) ${(allTasks[i].subtasks[j].completed)?("checked"):("")}>
+                      <p  class="task" id="task-${allTasks[i].id}-${allTasks[i].subtasks[j].id}">${String(allTasks[i].subtasks[j].title)}</p>
+                    </span>
+                    <span>
+                      <button id="edit-${allTasks[i].id}-${allTasks[i].subtasks[j].id}" 
+                      onclick=editTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": allTasks[i].subtasks[j].id})})>Edit</button>
+                      <button id="delete-${allTasks[i].id}-${allTasks[i].subtasks[j].id}" 
+                      onclick=deleteTask(${JSON.stringify({"taskId": allTasks[i].id, "subtaskId": allTasks[i].subtasks[j].id})})>Delete</button>
+                    </span>
+                  </div>  
+                    `;
+                }
+                allTasksDiv.append(container);
+
+                // Checking iff task, and subtask is completed or not
+                // iff completed then add a class for line-through
+                if(allTasks[i].completed){
+                  let checkboxCompleteStatus = document.getElementById(`checkboxCompleteStatus-${allTasks[i].id}`);
+                  checkboxCompleteStatus.checked = true;
+
+                  let innerSpanL = document.getElementById(`${allTasks[i].id}`);
+                  innerSpanL.classList.add("taskCompleted");
+                }
+                for(let j=0; j<allTasks[i].subtasks.length; j++){
+                  if(allTasks[i].subtasks[j].completed){
+                    let checkboxCompleteStatus = document.getElementById(`checkboxCompleteStatus-${allTasks[i].id}-${allTasks[i].subtasks[j].id}`);
+                    checkboxCompleteStatus.checked = true;
+
+                    let innerSpanL = document.getElementById(`${allTasks[i].id}-${allTasks[i].subtasks[j].id}`);
+                    innerSpanL.classList.add("taskCompleted");
+                  }
+                }
+              }
+            }
+
+            function sortTasks(){
+              sortby = document.getElementById("sortby").value;
+              render(sortby);
+            }
+
+            function autoCompleteTaskHelper(task){
+              let helper = task.match(/^complete\s+(.+?)(?:\s+by\s+(.+))?$/i);
+              if (helper) return [helper[1].trim(), (helper[2] || "").trim()];
+              else return null;
+            }
+
+            function autoCompleteDateHelper(date){
+              let currentDate = new Date();
+              let today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+              let tomorrow = new Date(today);
+              tomorrow.setDate(today.getDate() + 1);
+              let dayAfterTomorrow = new Date(tomorrow);
+              dayAfterTomorrow.setDate(tomorrow.getDate() + 1);
+
+              let nextWeek = new Date(today);
+              nextWeek.setDate(today.getDate() + 7);
+              let nextMonth = new Date(today);
+              nextMonth.setDate(today.getDate() + 30);
+
+              let dateMatch = date.match(/(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i);
+              if (dateMatch) {
+                let dateObj = new Date(dateMatch[1]);
+                if (!isNaN(dateObj)) {
+                  return dateObj.toISOString().split('T')[0];
+                }
+              }
+
+              switch (date.toLowerCase()) {
+                case "today":
+                  return today.toISOString().split('T')[0];
+                case "tomorrow":
+                  return tomorrow.toISOString().split('T')[0];
+                case "day after tomorrow":
+                  return dayAfterTomorrow.toISOString().split('T')[0];
+                case "next week":
+                  return nextWeek.toISOString().split('T')[0];
+                case "next month":
+                  return nextMonth.toISOString().split('T')[0];
+                default:
+                  return null;
+              }
+            }
+
+            // Add-Task Function
+            function addTask(){
+              if(inputTask==""){
+                window.alert("Please add a valid task, category, and due-date !!!");
+                return ;
+              }
+
+              let autoCompleteTask = autoCompleteTaskHelper(inputTask);
+              if(autoCompleteTask){
+                inputTask = (autoCompleteTask[0])?(autoCompleteTask[0]):('');
+                dueDate   = (autoCompleteDateHelper(autoCompleteTask[1]))?(autoCompleteDateHelper(autoCompleteTask[1])):('');
+              }
+
+              // Find Last-Id for InputUserId 
+              let inputId = 0;
+              for(let i=0; i<allTasks.length; i++) inputId = Math.max(inputId, (allTasks[i].id)+1);
+
+              // Adding new-task in the Database
+              let newTask = {
+                "id": inputId,
+                "title": inputTask,
+                "category": category,
+                "tags": tags,
+                "dueDate": dueDate,
+                "priority" : priority,
+                "completed": false,
+                "isImp": isImp,
+                "subtasks": []
+              };
+              allTasks.push(newTask);
+
+              console.log(allTasks);
+              // Refreshing the Input element
+              inputTask = "";
+              category = "";
+              tags = "";
+              dueDate = "";
+              priority = "";
+              isImp = false;
+              document.getElementById("inputTask").value   = "";
+              document.getElementById("category").value   = "";
+              document.getElementById("tags").value   = "";
+              document.getElementById("dueDate").value   = "";
+              document.getElementById("priority").value   = "";
+              document.getElementById("isImp").checked   = false;
+              
+              // Re-Render
+              render(sortby);
+              return ;
+            }
+
+            // Function to add subtask
+            function addSubtask(identifier){
+              document.getElementById(`addSubtask-${identifier}`).remove();
+              // Creating empty dict for subtask 
+              let taksPos = findPosById(allTasks, identifier);
+              allTasks[taksPos].subtasks.push({
+                id:allTasks[taksPos].subtasks.length,
+                completed: false,
+                title:""
+              });
+              
+              // Adding elements for adding, and saving new subtask 
+              let innerSpan   = document.getElementById(identifier);
+              innerSpan.nextElementSibling.innerHTML = `
+                <input type="text" name=${"addSubtask-task-"+identifier} id=${"addSubtask-task-"+identifier}
+                  placeholder="Add Subtask" 
+                  oninput=subtaskInputHelper(${JSON.stringify({"identifier": "addSubtask-task-"+identifier, "taskPos": taksPos})})>
+
+                <button id=${"addSubtask-save-"+identifier}
+                  onclick=saveTask("addSubtask-save-${identifier}")>Save</button>
+              `;
+            }
+
+            // Delete-Task Function
+            function deleteTask({taskId, subtaskId}){
+              let deleteTaskPos = findPosById(allTasks, taskId);
+              let deleteSubtaskPos = findPosById(allTasks[deleteTaskPos].subtasks, subtaskId);
+              
+              if(subtaskId == -1) allTasks.splice(deleteTaskPos, 1);
+              else allTasks[deleteTaskPos].subtasks.splice(deleteSubtaskPos, 1);
+              
+              render(sortby); 
+              return ;
+            }
+
+            // Clear-Tasks Function
+            function clearAll(){
+              // Clear All-Tasks list, and Re-render
+              allTasks = [];
+              render(sortby); 
+              return ;
+            }
+
+            // Edit-Task Function
+            function editTask({taskId, subtaskId}){
+              let identifier = (subtaskId == -1)?(String(taskId)):(String(taskId)+'-'+String(subtaskId));
+
+              // Find task to edit in the database as per the given id
+              let taksPos = findPosById(allTasks, taskId);
+              let subtaskPos = findPosById(allTasks[taksPos].subtasks, subtaskId);
+
+              // Locating the task to edit and adding 'edit', 'save' button
+              let innerSpan   = document.getElementById(identifier);
+              
+              if(subtaskId == -1){
+                innerSpan.innerHTML += ` 
+                  <input type="text" name=${"editTask-"+identifier} id=${"editTask-"+identifier}
+                    value='${allTasks[taksPos].title}' 
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editTask-"+identifier, "previousValue": allTasks[taksPos].title, "helper": "task"})})>
+
+                  <input type="text" name=${"editCategory-"+identifier} id=${"editCategory-"+identifier}
+                    value='${allTasks[taksPos].category}'
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editCategory-"+identifier, "previousValue": allTasks[taksPos].category, "helper": "category"})})>
+
+                  <input type="text" name=${"editTags-"+identifier} id=${"editTags-"+identifier}
+                    value='${allTasks[taksPos].tags}'
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editTags-"+identifier, "previousValue": allTasks[taksPos].tags, "helper": "tags"})})>
+
+                  <input type="date" name=${"editDueDate-"+identifier} id=${"editDueDate-"+identifier}
+                    value='${allTasks[taksPos].dueDate}' 
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editDueDate-"+identifier, "previousValue": allTasks[taksPos].dueDate, "helper": "dueDate"})})>
+                  
+                  <select name=${"editPriority-"+identifier} id=${"editPriority-"+identifier}
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editPriority-"+identifier, "previousValue": allTasks[taksPos].priority, "helper": "priority"})})>                  
+                    <option disabled hidden selected>${allTasks[taksPos].priority.slice(2)}</option>
+                    <option value="2-Low">Low</option>
+                    <option value="1-Medium">Medium</option>
+                    <option value="0-High">High</option>
+                  </select>
+                `;
+
+                innerSpan.nextElementSibling.innerHTML += `
+                  <button id=${"save-"+identifier}
+                    onclick=saveTask("save-${allTasks[taksPos].id}")>Save</button>`;
+
+                // Locating task and removing it
+                document.getElementById(`task-${identifier}`).remove();
+                document.getElementById(`category-${allTasks[taksPos].id}`).remove();
+                document.getElementById(`tags-${allTasks[taksPos].id}`).remove();
+                document.getElementById(`dueDate-${allTasks[taksPos].id}`).remove();
+                document.getElementById(`priority-${allTasks[taksPos].id}`).remove();
+                document.getElementById(`addSubtask-${allTasks[taksPos].id}`).remove();
+                document.getElementById(`edit-${identifier}`).remove();
+                document.getElementById(`delete-${identifier}`).remove();
+              }
+              else {
+                innerSpan.innerHTML += `
+                  <input type="text" name=${"editTask-"+identifier} id=${"editTask-"+identifier}
+                    value=${allTasks[taksPos].subtasks[subtaskPos].title} 
+                    oninput=editInputHelper(${JSON.stringify({"taskPos": taksPos, "subtaskPos": subtaskPos, "identifier": "editTask-"+identifier, "previousValue": allTasks[taksPos].subtasks[subtaskPos].title, "helper": "subtask"})})>
+                `;
+                innerSpan.nextElementSibling.innerHTML += `
+                  <button id=${"save-"+identifier}
+                    onclick=saveTask("save-${identifier}")>Save</button>
+                `;
+
+                document.getElementById(`task-${identifier}`).remove();
+                document.getElementById(`edit-${identifier}`).remove();
+                document.getElementById(`delete-${identifier}`).remove();
+              }
+
+              
+            }
+
+            // Save-Task Function
+            function saveTask(identifier){
+              let helper = identifier.split("-");
+              if(helper[0] == "addSubtask"){
+                let taksPos = findPosById(allTasks, Number(helper[helper.length-1]));
+                let allSubTasks = allTasks[taksPos].subtasks;
+                if(allSubTasks[allSubTasks.length-1].title == "") allSubTasks.pop();
+              }
+              render(sortby); 
+            }
+
+            function completedTask({taskId, subtaskId}){
+              if(subtaskId == -1){
+                let completedTaskElement = document.getElementById(taskId);
+                if(completedTaskElement.classList.contains("taskCompleted")){
+                  completedTaskElement.classList.remove("taskCompleted");
+                  for(let i=0; i<allTasks.length; i++){ if(taskId == `${allTasks[i].id}`){ allTasks[i].completed = 0; break; }}
+                }
+                else{
+                  completedTaskElement.classList.add("taskCompleted");
+                  for(let i=0; i<allTasks.length; i++){ if(taskId == `${allTasks[i].id}`){ allTasks[i].completed = 1; break; }}
+                }
+              }
+              else{
+                let identifier = String(taskId)+'-'+String(subtaskId);
+                let completedTaskElement = document.getElementById(identifier);
+                if(completedTaskElement.classList.contains("taskCompleted")){
+                  completedTaskElement.classList.remove("taskCompleted");
+                  for(let j=0; j<allTasks[taskId].subtasks.length; j++){ if(subtaskId == `${allTasks[taskId].subtasks[j].id}`){ allTasks[taskId].subtasks[j].completed = 0; break; }}
+                }
+                else{
+                  completedTaskElement.classList.add("taskCompleted");
+                  for(let j=0; j<allTasks[taskId].subtasks.length; j++){ if(subtaskId == `${allTasks[taskId].subtasks[j].id}`){ allTasks[taskId].subtasks[j].completed = 1; break; }}
+                }
+              }
+              
+              render(sortby);
+            }
+
+            function insertHtmlInModalElement(element, task){
+              element.innerHTML += `
+                <div class="main-task">
+                  <p class="task">${String(task.title)}</p>
+                  <p class="dueDate ${(String(task.dueDate) == '')?('hidden'):('')}">${String(task.dueDate)}</p>
+                  <p class="category ${(String(task.category) == '')?('hidden'):('')}">${String(task.category)}</p>
+                  <p class="tags ${(String(task.tags) == '')?('hidden'):('')}">${String(task.tags)}</p>
+                  <p class="priority ${(String(task.priority) == '')?('hidden'):('')}">${String(task.priority.slice(2))}</p>
+                </div>
+              `;
+            }
+            function modalFunction(status, feature){
+              let modal = document.getElementById("modal");
+              if(status) modal.style.display = "block";
+              else modal.style.display = "none";
+
+              let modalContent = document.getElementById("modalContent");
+              modalContent.innerHTML = `
+                  <span class="top" id="modalContentTop">
+                    ${ ((feature == 'activityLog')?('<p>Activity Log</p>'):('')) }
+                    ${ ((feature == 'filter')?('<p>Filter</p>'):('')) }
+                    ${ ((feature == 'search')?('<p>Search</p>'):('')) }
+                    ${ ((feature == 'backlog')?('<p>BackLog</p>'):('')) }
+                    ${ ((feature == 'impTasks')?('<p>Important Tasks</p>'):('')) }
+                    <button class="close" onclick="modalFunction(0)">Close X</button>
+                  </span>
+              `;
+
+              if(feature == 'activityLog'){
+                let bottomSpan = document.createElement("span");
+                bottomSpan.id = "modalContentBottom";
+                bottomSpan.className = "bottom";
+                modalContent.append(bottomSpan);
+                let activityLog = JSON.parse(localStorage.getItem("activityLog"));
+                for(let i=1; i<activityLog.length; i++){
+                  let diff = activityLog[i].filter(({id: id1}) => !activityLog[i-1].some(({id: id2}) => id2===id1));
+                  if(diff.length != 0) insertHtmlInModalElement(bottomSpan, diff[0]);
+                }
+              }
+
+              if(feature == 'backlog'){
+                let datetime = (new Date()).toISOString().split('T')[0];
+                let bottomSpan = document.createElement("span");
+                bottomSpan.id = "modalContentBottom";
+                bottomSpan.className = "bottom";
+                modalContent.append(bottomSpan);
+                for(let i=0; i<allTasks.length; i++) if(allTasks[i].dueDate<datetime && !allTasks[i].completed) insertHtmlInModalElement(bottomSpan, allTasks[i]);
+              }
+
+              if(feature == 'search'){
+                modalContent.innerHTML += `                    
+                    <span class="mid" id="modalContentMid">
+                      <input  class="searchBox" id="searchBox" name="searchBox" 
+                      oninput="modalInputHelper('searchBox')"
+                      placeholder="Search here...">
+                      <button onclick="searchTask()">Search</button>
+                    </span>
+
+                    <span class="bottom" id="modalContentBottom"></span>
+                `;
+              }
+
+              if(feature == 'filter'){
+                let modalContent = document.getElementById("modalContent");
+                modalContent.innerHTML += `
+                    <span class="mid" id="modalContentMid">
+                      <input  class="categoryFilterBox" id="categoryFilterBox" name="categoryFilterBox" 
+                      oninput="modalInputHelper('categoryFilterBox')"
+                      placeholder="Filter by Category...">
+
+                      <input  class="tagsFilterBox" id="tagsFilterBox" name="tagsFilterBox" 
+                      oninput="modalInputHelper('tagsFilterBox')"
+                      placeholder="Filter by Tags...">
+
+                      <input type="date" id="lowerDateFilterBox" class="lowerDateFilterBox" oninput="modalInputHelper('lowerDateFilterBox')" />
+                      <input type="date" id="upperDateFilterBox" class="upperDateFilterBox" oninput="modalInputHelper('upperDateFilterBox')" />
+
+                      <select name="priorityFilterBox" id="priorityFilterBox" class="priorityFilterBox" oninput="modalInputHelper('priorityFilterBox')">
+                          <option value="" disabled selected hidden>Filter by Priority</option>
+                          <option value="2-Low">Low</option>
+                          <option value="1-Medium">Medium</option>
+                          <option value="0-High">High</option>
+                      </select>
+                      <button onclick="filterTask()">Filter</button>
+                    </span>
+
+                    <span class="bottom" id="modalContentBottom">
+                    </span>
+                `;
+              }
+
+              if(feature == 'impTasks'){
+                let datetime = (new Date()).toISOString().split('T')[0];
+                let bottomSpan = document.createElement("span");
+                bottomSpan.id = "modalContentBottom";
+                bottomSpan.className = "bottom";
+                modalContent.append(bottomSpan);
+                for(let i=0; i<allTasks.length; i++) if(allTasks[i].isImp) insertHtmlInModalElement(bottomSpan, allTasks[i]);
+              }
+            }
+
+            function modalInputHelper(identifier){
+              if(identifier == 'searchBox')          searchBy = document.getElementById(identifier).value;
+              if(identifier == 'categoryFilterBox')  categoryFilter = document.getElementById(identifier).value;
+              if(identifier == 'tagsFilterBox')  tagsFilter = document.getElementById(identifier).value;
+              if(identifier == 'lowerDateFilterBox') lowerDateFilter = document.getElementById(identifier).value;
+              if(identifier == 'upperDateFilterBox') upperDateFilter = document.getElementById(identifier).value;
+              if(identifier == 'priorityFilterBox')  priorityFilter = document.getElementById(identifier).value;
+            }
+
+            function filterTask(){
+              let modalContentBottom = document.getElementById("modalContentBottom");
+              modalContentBottom.innerHTML = "";
+
+              if(categoryFilter=="" && tagsFilter=="" && lowerDateFilter=="" && upperDateFilter=="" && priorityFilter=="") return;
+              for(let i=0; i<allTasks.length; i++){
+                let filterResult = ((categoryFilter == "")?(1):(allTasks[i].category.toLowerCase().indexOf(categoryFilter.toLowerCase()) !== -1));
+                filterResult = filterResult & ((tagsFilter=="")?(1):(allTasks[i].tags.toLowerCase().indexOf(tagsFilter.toLowerCase()) !== -1));
+                filterResult = filterResult & ((lowerDateFilter=="")?(1):(allTasks[i].dueDate>=lowerDateFilter));
+                filterResult = filterResult & ((upperDateFilter=="")?(1):(allTasks[i].dueDate<=upperDateFilter));
+                filterResult = filterResult & ((priorityFilter=="")?(1):(allTasks[i].priority==priorityFilter));
+                
+                if(filterResult) insertHtmlInModalElement(modalContentBottom, allTasks[i]);
+              }
+            }
+
+            // Search Task Function
+            function searchTask(){
+              let modalContentBottom = document.getElementById("modalContentBottom");
+              modalContentBottom.innerHTML = "";
+
+              if(searchBy == "") return ;
+              searchBy = searchBy.toLowerCase();
+              for(let i=0; i<allTasks.length; i++){
+                let searchResult = (allTasks[i].title.toLowerCase().indexOf(searchBy) !== -1) | (allTasks[i].category.toLowerCase().indexOf(searchBy) !== -1) | (allTasks[i].tags.toLowerCase().indexOf(searchBy) !== -1);
+                for(let j=0; j<allTasks[i].subtasks.length; j++) searchResult = (searchResult|(allTasks[i].subtasks[j].title.toLowerCase().indexOf(searchBy) !== -1));
+                if(searchResult) insertHtmlInModalElement(modalContentBottom, allTasks[i]);
+              }
+            }
+
+            // Function to fetch data at the start of website 
+            window.onload = function() {
+              // Check iff local storage has tasks stored from previous session
+              let savedTasks = localStorage.getItem("allTasks");
+              if(savedTasks != null){
+                // Iff there are, then load it
+                allTasks = JSON.parse(savedTasks);
+                render(sortby);
+              }
+
+              // Show Imp Tasks every 10000 secs
+              setInterval(function(){document.getElementById('impTasks').click()},10000);
+            }
+        </script>
+        <style>
+          *{
+            margin: 0;
+            font-family: 'Ubuntu', sans-serif;
+          }
+          body{
+            display: grid;
+          }
+          input:hover, button:hover{
+            cursor: pointer;
+          }
+          .app{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            height: 100%;
+            min-height: 100vh;
+            background-color: #fffef2;
+          }
+          .app h2{
+            margin: 25px 0 10px 0;
+            font-size: 35px;
+          }
+
+          .taskAdder{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+          }
+          .taskAdder .top{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            column-gap: 10px;
+          }
+          .taskAdder .mid{
+            display: flex;
+            justify-content: space-evenly;
+          }
+          .taskAdder .top, .taskAdder .mid, .taskAdder .bottom, .tasks{
+            margin: 25px 0 0 0;
+          }
+          .taskAdder .top .inputTask, .taskAdder .top .category, .taskAdder .top .tags, .taskAdder .top .dueDate, .taskAdder .top .priority{
+            height: 30px;
+            background-color: #fbdc00;
+            font-size: 17px;
+            border: 0;
+            border-radius: 2.5px;
+            padding-left: 15px;
+          }
+          .taskAdder .mid .submit, .taskAdder .mid .reset,
+          .taskAdder .bottom .filter, .taskAdder .bottom .search, .taskAdder .bottom .activityLog, 
+          .taskAdder .bottom .impTasks, .taskAdder .bottom .backlog, .taskAdder .bottom .sortby{
+            width: 150px;
+            height: 30px;
+            font-size: 15px;
+            background-color: #ee3425;
+            color: #fff;
+            border: 0;
+            border-radius: 2.5px;
+          }
+          .taskAdder .bottom{
+            display: flex;
+            justify-content: space-between;
+            column-gap: 5px;
+          }
+
+          .tasks{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+          }
+          .container{
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-width: 1000px;
+
+            font-size: 20px;
+            font-weight: 500;
+
+            padding: 20px;
+            margin: 0 0 15px 0;
+            background-color: #fbdc00;
+          }
+          .container div{
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+          }
+          .container .main-task{
+            font-size: 22.5px;
+          }
+          .container .sub-task{
+            font-size: 17.5px;
+            margin-left: 50px;
+          }
+          .container .innerSpanL, .container .innerSpanLSubtask{
+            display: flex;
+            align-items: center;
+            column-gap: 10px;
+            line-height: 1.25;
+          }
+          .container .main-task .checkbox{
+            width: 20px;
+          }
+          .container .main-task input{
+            width: 150px;
+            height: 25px;
+            background-color: #ee3425;
+            font-size: 16.5px;
+            border: 0;
+            border-radius: 2.5px;
+            padding-left: 15px;
+            color: #fff;
+          }
+          .container .main-task button{
+            width: 50px;
+            height: 30px;
+            font-size: 15px;
+            background-color: #ee3425;
+            color: #fff;
+            border: 0;
+            border-radius: 2.5px;
+          }
+          .container .innerSpanL .category, .container .innerSpanL .tags, .container .innerSpanL .dueDate, .container .innerSpanL .priority{
+            font-size: 17.5px;
+            font-weight: 700;
+            border-radius: 4px;
+            padding: 2.5px 7.5px;
+            background-color: #ee3425;
+            color: #fff;
+          }
+          .container .innerSpanL .category{
+            background-color: #15b270;
+          }
+          .container .innerSpanL .tags{
+            background-color: #001FFB;
+          }
+          .container .innerSpanL .dueDate{
+            background-color: #2f4858;
+          }
+
+          .container .innerSpanR{
+            display: flex;
+            column-gap: 15px;
+          }
+          .container .innerSpanR button{
+            width: 100px;
+            height: 30px;
+            font-size: 15px;
+            background-color: #ee3425;
+            color: #fff;
+            border: 0;
+            border-radius: 2.5px;
+          }
+          .container .sub-task input{
+            height: 20px;
+            background-color: #ee3425;
+            font-size: 16.5px;
+            border: 0;
+            border-radius: 2.5px;
+            padding-left: 15px;
+            color: #fff;
+          }
+          .container .sub-task button{
+            width: 75px;
+            height: 25px;
+            font-size: 15px;
+            background-color: #ee3425;
+            color: #fff;
+            border: 0;
+            border-radius: 2.5px;
+          }
+          
+          .taskCompleted{
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+          }
+
+          /* Modal */
+          .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1; 
+            padding-top: 100px;
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgb(0,0,0); 
+            background-color: rgba(0,0,0,0.4);
+          }
+          .modalContent {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 5px;
+            width: 80%;
+          }
+          .modalContent .top{
+            display: flex;
+            font-size: 35px;
+            font-weight: 700;
+            margin: 0 16px 25px 16px;
+          }
+          .modalContent .top p{
+            flex: 1;
+          }
+          .modalContent .top button{
+            font-size: 20px;
+            font-weight: 500;
+            padding: 0 25px;
+            border: 0;
+            border-radius: 2.5px;
+            background-color: #ee3425;
+            color: #fff;
+          }
+
+          .modalContent .mid{
+            display: flex;
+            justify-content: center;
+            column-gap: 15px;
+            margin-bottom: 20px;
+          }
+          .modalContent .mid input, .modalContent .mid button{
+            height: 25px;
+            font-size: 17.5px;
+            font-weight: 500;
+            padding: 0 25px;
+            border: 0;
+            border-radius: 2.5px;
+            background-color: #ee3425;
+            color: #fff;
+          }
+
+          .modalContent .bottom .main-task{
+            display: flex;
+            column-gap: 15px;
+            font-size: 20px;
+            font-weight: 500;
+
+            background-color: #fbdc00;
+            border-radius: 2.5px;
+            padding: 15px;
+            margin-bottom: 15px;
+          }
+          .modalContent .bottom .main-task .priority,
+          .modalContent .bottom .main-task .category,
+          .modalContent .bottom .main-task .tags,
+          .modalContent .bottom .main-task .dueDate{
+            font-size: 17.5px;
+            font-weight: 700;
+            border-radius: 4px;
+            padding: 2.5px 7.5px;
+            background-color: #ee3425;
+            color: #fff;
+          }
+          .modalContent .bottom .main-task .category{
+            background-color: #15b270;
+          }
+          .modalContent .bottom .main-task .tags{
+            background-color: #001FFB;
+          }
+          .modalContent .bottom .main-task .dueDate{
+            background-color: #2f4858;
+          }
+
+          .hidden{
+            display: none;
+          }
+        </style>
+    </head>
+    <body>
+      <div class="app">
+        <h2>To-Do List App</h2>
+        <div class="taskAdder">
+          <span class="top">
+            <input  class="inputTask" id="inputTask" name="inputTask" oninput="inputHelper()" placeholder="Add a task here...">
+            <input  class="category" id="category" name="category" oninput="inputHelper()" placeholder="Category">
+            <input  class="tags" id="tags" name="tags" oninput="inputHelper()" placeholder="Add Tags">
+            <input type="date" id="dueDate" class="dueDate" placeholder="dueDate" oninput="inputHelper()" />
+            <select name="priority" id="priority" class="priority" placeholder="priority" oninput="inputHelper()">
+                <option value="" disabled selected hidden>Set Priority</option>
+                <option value="2-Low">Low</option>
+                <option value="1-Medium">Medium</option>
+                <option value="0-High">High</option>
+            </select>
+
+            <label><input type="checkbox" id="isImp" class="isImp" oninput="inputHelper()"/> Is this task important ?</label>
+          </span>
+          <span class="mid">
+            <button class="submit" for="inputTask" onclick="addTask()">Add</button>
+            <button class="reset" onclick="clearAll()">Clear All</button>
+          </span>
+          <span class="bottom">
+            <button class="filter" id="filter" onclick="modalFunction(1, 'filter')">Filter</button>
+            <button class="search" id="search" onclick="modalFunction(1, 'search')">Search</button>
+            <button class="activityLog" id="activityLog" onclick="modalFunction(1, 'activityLog')">Show Activity Log</button>
+            <button class="backlog" id="backlog" onclick="modalFunction(1, 'backlog')">Show Backlogs</button>
+            <button class="impTasks" id="impTasks" onclick="modalFunction(1, 'impTasks')">Important Tasks</button>
+            <select name="sortby" id="sortby" class="sortby" placeholder="sortby" oninput="sortTasks()">
+              <option value="dueDate" selected>Sort By : Due Date</option>
+              <option value="priority">Sort By : Priority</option>
+            </select>
+          </span>
+        </div>
+      
+        <div class="tasks" id="tasks">
+        </div>
+
+        <div class="modal" id="modal">
+          <div class="modalContent" id="modalContent">
+            <span class="top" id="modalContentTop"></span>
+          </div>
+        </div>
+      </div>
+    </body>
+</hmtl>
