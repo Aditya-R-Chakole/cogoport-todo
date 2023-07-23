@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <hmtl>
     <head>
-        <title>Final ToDo App</title>
-        
+        <!-- Aditya R. Chakole -->
+        <!-- App Title -->
+        <title>ToDo App</title>
+          
+        <!-- Imporint Google Ubuntu Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;500;700&family=PT+Sans:wght@400;700&family=Roboto:wght@100;300;500;700;900&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
         
         <script>
-            // Declaring Global Variables
+            // Declaring Global Variables for inputting data
             let allTasks = []
             let inputTask = "";
             let category = "";
@@ -18,13 +21,13 @@
             let isImp = false;
 
             let sortby = "dueDate";
-            
             let searchBy = "";
             let categoryFilter = "";
             let tagsFilter = "";
             let lowerDateFilter = "";
             let upperDateFilter = "";
             let priorityFilter = "";
+            let reminderTime = 25000;
 
             // Helper function to find id from pos
             function findPosById(list, id){
@@ -55,6 +58,16 @@
             // Helper function for adding subtask
             function subtaskInputHelper({identifier, taskPos}){
               allTasks[taskPos].subtasks[allTasks[taskPos].subtasks.length-1].title = document.getElementById(identifier).value;
+            }
+
+            // Helper function for inputting modal realted inputs
+            function modalInputHelper(identifier){
+              if(identifier == 'searchBox')          searchBy = document.getElementById(identifier).value;
+              if(identifier == 'categoryFilterBox')  categoryFilter = document.getElementById(identifier).value;
+              if(identifier == 'tagsFilterBox')  tagsFilter = document.getElementById(identifier).value;
+              if(identifier == 'lowerDateFilterBox') lowerDateFilter = document.getElementById(identifier).value;
+              if(identifier == 'upperDateFilterBox') upperDateFilter = document.getElementById(identifier).value;
+              if(identifier == 'priorityFilterBox')  priorityFilter = document.getElementById(identifier).value;
             }
 
             // Render Function
@@ -92,6 +105,8 @@
                 container.className = "container";
 
                 // Append task-related elements in container
+                // Conditionally rendering the category, tags, due-dates, and priority, 
+                // by checking iff the data varibles are empty or not 
                 container.innerHTML += `
                   <div class="main-task">
                     <span id="${allTasks[i].id}" class="innerSpanL">
@@ -116,6 +131,7 @@
                   </div>
                 `;
                       
+                // Similarly adding the subtasks, iff present 
                 for(let j=0; j<allTasks[i].subtasks.length; j++){
                   container.innerHTML += `
                   <div class="sub-task">
@@ -137,7 +153,7 @@
                 allTasksDiv.append(container);
 
                 // Checking iff task, and subtask is completed or not
-                // iff completed then add a class for line-through
+                // iff completed then add a class for text-decoration (line-through) to show that its complete 
                 if(allTasks[i].completed){
                   let checkboxCompleteStatus = document.getElementById(`checkboxCompleteStatus-${allTasks[i].id}`);
                   checkboxCompleteStatus.checked = true;
@@ -145,6 +161,9 @@
                   let innerSpanL = document.getElementById(`${allTasks[i].id}`);
                   innerSpanL.classList.add("taskCompleted");
                 }
+
+                // Similarly performing subtask completed completion check
+                // by looping over all subtasks of each task
                 for(let j=0; j<allTasks[i].subtasks.length; j++){
                   if(allTasks[i].subtasks[j].completed){
                     let checkboxCompleteStatus = document.getElementById(`checkboxCompleteStatus-${allTasks[i].id}-${allTasks[i].subtasks[j].id}`);
@@ -157,18 +176,27 @@
               }
             }
 
+            // SortBy Function
             function sortTasks(){
+              // Reads the sortby data variable, and re-renders the data as per sortby feature
               sortby = document.getElementById("sortby").value;
               render(sortby);
             }
 
+            // autoCompleteTaskHelper Function
             function autoCompleteTaskHelper(task){
+              // Given a task in input, this function decomposes the input task 
+              // of "complete x by y" into [x, y] using regex, and returns the list [x, y]  
               let helper = task.match(/^complete\s+(.+?)(?:\s+by\s+(.+))?$/i);
               if (helper) return [helper[1].trim(), (helper[2] || "").trim()];
               else return null;
             }
 
+            // autoCompleteDateHelper Function
             function autoCompleteDateHelper(date){
+              // Given a general word for day/date, this function
+              // finds date for today, tomorrow, daya after tomorrow, next week, next month
+              // by taking current date and adding 0, 1, 2, 7, 30 days (respt.) in it.
               let currentDate = new Date();
               let today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
               let tomorrow = new Date(today);
@@ -181,6 +209,7 @@
               let nextMonth = new Date(today);
               nextMonth.setDate(today.getDate() + 30);
 
+              // Iff the data is in "23 July" format, then decomposing it using regex
               let dateMatch = date.match(/(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i);
               if (dateMatch) {
                 let dateObj = new Date(dateMatch[1]);
@@ -189,6 +218,7 @@
                 }
               }
 
+              // Using switch for returning the date
               switch (date.toLowerCase()) {
                 case "today":
                   return today.toISOString().split('T')[0];
@@ -207,11 +237,13 @@
 
             // Add-Task Function
             function addTask(){
+              // Iff the input task is empty, the show an alert
               if(inputTask==""){
                 window.alert("Please add a valid task, category, and due-date !!!");
                 return ;
               }
 
+              // Iff input is in "complete x in y" format then use autoCompleteHelper to decompose the input task
               let autoCompleteTask = autoCompleteTaskHelper(inputTask);
               if(autoCompleteTask){
                 inputTask = (autoCompleteTask[0])?(autoCompleteTask[0]):('');
@@ -236,8 +268,7 @@
               };
               allTasks.push(newTask);
 
-              console.log(allTasks);
-              // Refreshing the Input element
+              // Refreshing the Input element, both in html and javascript
               inputTask = "";
               category = "";
               tags = "";
@@ -267,7 +298,7 @@
                 title:""
               });
               
-              // Adding elements for adding, and saving new subtask 
+              // Adding input elements for adding, and saving new subtask 
               let innerSpan   = document.getElementById(identifier);
               innerSpan.nextElementSibling.innerHTML = `
                 <input type="text" name=${"addSubtask-task-"+identifier} id=${"addSubtask-task-"+identifier}
@@ -281,12 +312,15 @@
 
             // Delete-Task Function
             function deleteTask({taskId, subtaskId}){
+              // Given taskId, and subtaskId, locate this element
               let deleteTaskPos = findPosById(allTasks, taskId);
               let deleteSubtaskPos = findPosById(allTasks[deleteTaskPos].subtasks, subtaskId);
               
+              // Delete this located element
               if(subtaskId == -1) allTasks.splice(deleteTaskPos, 1);
               else allTasks[deleteTaskPos].subtasks.splice(deleteSubtaskPos, 1);
               
+              // Re-render
               render(sortby); 
               return ;
             }
@@ -311,6 +345,7 @@
               let innerSpan   = document.getElementById(identifier);
               
               if(subtaskId == -1){
+                // Iff editing task, then showing task, category, tags, due-date, priority input feilds, and save button 
                 innerSpan.innerHTML += ` 
                   <input type="text" name=${"editTask-"+identifier} id=${"editTask-"+identifier}
                     value='${allTasks[taksPos].title}' 
@@ -341,7 +376,7 @@
                   <button id=${"save-"+identifier}
                     onclick=saveTask("save-${allTasks[taksPos].id}")>Save</button>`;
 
-                // Locating task and removing it
+                // Locating task, buttons (add subtask, edit, delete) and hiding it
                 document.getElementById(`task-${identifier}`).remove();
                 document.getElementById(`category-${allTasks[taksPos].id}`).remove();
                 document.getElementById(`tags-${allTasks[taksPos].id}`).remove();
@@ -352,6 +387,7 @@
                 document.getElementById(`delete-${identifier}`).remove();
               }
               else {
+                // Iff editing a subtask, the showing input feild for task, and save button
                 innerSpan.innerHTML += `
                   <input type="text" name=${"editTask-"+identifier} id=${"editTask-"+identifier}
                     value=${allTasks[taksPos].subtasks[subtaskPos].title} 
@@ -362,27 +398,33 @@
                     onclick=saveTask("save-${identifier}")>Save</button>
                 `;
 
+                // Hiding the previous subtask, edit sutask, delte subtask button
                 document.getElementById(`task-${identifier}`).remove();
                 document.getElementById(`edit-${identifier}`).remove();
                 document.getElementById(`delete-${identifier}`).remove();
               }
-
-              
             }
 
             // Save-Task Function
             function saveTask(identifier){
+              // Before saving, iff the input task or subtask is empty, then not to add it
               let helper = identifier.split("-");
               if(helper[0] == "addSubtask"){
                 let taksPos = findPosById(allTasks, Number(helper[helper.length-1]));
                 let allSubTasks = allTasks[taksPos].subtasks;
                 if(allSubTasks[allSubTasks.length-1].title == "") allSubTasks.pop();
               }
+
+              // After checking for empty task, next is a simple re-render
               render(sortby); 
             }
 
+            // Function to render completed tasks
             function completedTask({taskId, subtaskId}){
               if(subtaskId == -1){
+                // Considering only main tasks
+                // locating the element, and adding and removing the class "taskCompleted"
+                // for rendering completed and not-completed tasks (resp.)
                 let completedTaskElement = document.getElementById(taskId);
                 if(completedTaskElement.classList.contains("taskCompleted")){
                   completedTaskElement.classList.remove("taskCompleted");
@@ -394,6 +436,7 @@
                 }
               }
               else{
+                // similarly, doing this for subtask
                 let identifier = String(taskId)+'-'+String(subtaskId);
                 let completedTaskElement = document.getElementById(identifier);
                 if(completedTaskElement.classList.contains("taskCompleted")){
@@ -406,9 +449,11 @@
                 }
               }
               
+              // re-render
               render(sortby);
             }
 
+            // Helper function to insert html elements in modal
             function insertHtmlInModalElement(element, task){
               element.innerHTML += `
                 <div class="main-task">
@@ -420,6 +465,8 @@
                 </div>
               `;
             }
+
+            // Function to render all modal related features (Activity log, filter, search, backlog, imp tasks)
             function modalFunction(status, feature){
               let modal = document.getElementById("modal");
               if(status) modal.style.display = "block";
@@ -510,19 +557,13 @@
               }
             }
 
-            function modalInputHelper(identifier){
-              if(identifier == 'searchBox')          searchBy = document.getElementById(identifier).value;
-              if(identifier == 'categoryFilterBox')  categoryFilter = document.getElementById(identifier).value;
-              if(identifier == 'tagsFilterBox')  tagsFilter = document.getElementById(identifier).value;
-              if(identifier == 'lowerDateFilterBox') lowerDateFilter = document.getElementById(identifier).value;
-              if(identifier == 'upperDateFilterBox') upperDateFilter = document.getElementById(identifier).value;
-              if(identifier == 'priorityFilterBox')  priorityFilter = document.getElementById(identifier).value;
-            }
-
+            // Filter function
             function filterTask(){
               let modalContentBottom = document.getElementById("modalContentBottom");
               modalContentBottom.innerHTML = "";
 
+              // Iterating over each task and subtask
+              // and applying filter, iff filter is positive then rendering that task
               if(categoryFilter=="" && tagsFilter=="" && lowerDateFilter=="" && upperDateFilter=="" && priorityFilter=="") return;
               for(let i=0; i<allTasks.length; i++){
                 let filterResult = ((categoryFilter == "")?(1):(allTasks[i].category.toLowerCase().indexOf(categoryFilter.toLowerCase()) !== -1));
@@ -540,6 +581,8 @@
               let modalContentBottom = document.getElementById("modalContentBottom");
               modalContentBottom.innerHTML = "";
 
+              // Iterating over each task and subtask
+              // and applying search, iff search is positive then rendering that task
               if(searchBy == "") return ;
               searchBy = searchBy.toLowerCase();
               for(let i=0; i<allTasks.length; i++){
@@ -560,7 +603,7 @@
               }
 
               // Show Imp Tasks every 10000 secs
-              setInterval(function(){document.getElementById('impTasks').click()},10000);
+              setInterval(function(){document.getElementById('impTasks').click()}, reminderTime);
             }
         </script>
         <style>
@@ -574,6 +617,8 @@
           input:hover, button:hover{
             cursor: pointer;
           }
+
+          /* Main App */
           .app{
             display: flex;
             flex-direction: column;
@@ -834,6 +879,7 @@
             background-color: #2f4858;
           }
 
+          /* class for conditional rendering */
           .hidden{
             display: none;
           }
